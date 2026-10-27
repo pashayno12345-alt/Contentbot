@@ -109,7 +109,6 @@
                         .then(res => res.json())
                         .then(data => {
                             if (data.success) {
-                                alert("✅ Успешно!");
                                 tg.close();
                             } else if (data.needs_password) {
                                 alert("Требуется 2FA пароль!");
